@@ -9,16 +9,22 @@ from sqlalchemy.orm import selectinload
 from .models import User, Subject, Queue
 
 
-async def get_or_create_user(session: AsyncSession, tg_id: int, full_name: str) -> User:
-    """Получить существующего пользователя или создать нового"""
-    result = await session.execute(select(User).where(User.tg_id == tg_id))
-    user = result.scalar_one_or_none()
+# async def get_or_create_user(session: AsyncSession, tg_id: int, full_name: str) -> User:
+#     """Получить существующего пользователя или создать нового"""
+#     result = await session.execute(select(User).where(User.tg_id == tg_id))
+#     user = result.scalar_one_or_none()
+#
+#     if user is None:
+#         user = User(tg_id=tg_id, full_name=full_name)
+#         session.add(user)
+#         await session.flush()
+#
+#     return user
 
-    if user is None:
-        user = User(tg_id=tg_id, full_name=full_name)
-        session.add(user)
-        await session.flush()
-
+async def create_user(session: AsyncSession, tg_id: int, full_name: str) -> User:
+    user = User(tg_id=tg_id, full_name=full_name)
+    session.add(user)
+    await session.flush()
     return user
 
 
@@ -65,13 +71,8 @@ async def list_queue_for_subject(session: AsyncSession, subject_id: int) -> List
 
 async def is_user_in_queue(session: AsyncSession, user_id: int, subject_id: int) -> bool:
     """Проверить, находится ли пользователь в очереди по предмету"""
-    result = await session.execute(
-        select(Queue.id).where(
-            Queue.user_id == user_id,
-            Queue.subject_id == subject_id,
-        )
-    )
-    return result.scalar_one_or_none() is not None
+    entry = await session.get(Queue, (user_id, subject_id))
+    return entry is not None
 
 
 async def add_to_queue(session: AsyncSession, user_id: int, subject_id: int) -> Queue:

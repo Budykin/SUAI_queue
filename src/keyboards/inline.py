@@ -8,6 +8,12 @@ def subjects_keyboard(subjects: list) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+def available_queues(subjects: list) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(text=disc.name, callback_data=f"subject:{disc.id}")]
+        for disc in subjects
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def queue_actions_keyboard(
     subject_id: int,

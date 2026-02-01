@@ -1,54 +1,70 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 
 from src.config import settings
 from src.database import async_session_maker
-from src.database.requests import ensure_admin_roles, get_or_create_user
+from src.database.requests import (
+    ensure_admin_roles,
+    create_user,
+    get_user_by_tg_id,
+)
 from src.keyboards.reply import main_menu_keyboard
-
 
 router = Router()
 
+class Register(StatesGroup):
+    waiting_for_name = State()
 
 @router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, state: FSMContext) -> None:
     async with async_session_maker() as session:
-        user = await get_or_create_user(
+        user = await get_user_by_tg_id(
+            session=session,
+            tg_id=message.from_user.id
+        )
+        if user:
+            await ensure_admin_roles(session, settings.superadmins)
+            await session.commit()
+            is_admin = user.role == "admin"
+            text = (
+                "Привет! Я бот для управления очередью студентов.\n\n"
+                "Используй меню ниже, чтобы выбрать дисциплину и посмотреть свои очереди."
+            )
+            await message.answer(text, reply_markup=main_menu_keyboard(is_admin=is_admin))
+        else:
+            # Если юзера нет, просим имя и переходим в состояние ожидания
+            await message.answer("Привет! Давай знакомиться. Введи свои Фамилию и Имя:")
+            await state.set_state(Register.waiting_for_name)
+
+
+@router.message(Register.waiting_for_name)
+async def process_name(message: Message, state: FSMContext) -> None:
+    full_name = message.text.strip()
+
+    if len(full_name) < 2:
+        await message.answer("Имя слишком короткое. Введи имя полностью:")
+        return
+
+    async with async_session_maker() as session:
+        # Создаем пользователя с введенным именем
+        user = await create_user(
             session=session,
             tg_id=message.from_user.id,
-            full_name=message.from_user.full_name or message.from_user.username or "Без имени",
+            full_name=full_name
         )
-
-        # Обновляем роли старост из настроек
         await ensure_admin_roles(session, settings.superadmins)
         await session.commit()
-
-    text = (
-        "Привет! Я бот для управления очередью студентов.\n\n"
-        "Используй меню ниже, чтобы выбрать дисциплину, посмотреть свои очереди или получить помощь."
-    )
-    is_admin = user.role == "admin"
-    await message.answer(text, reply_markup=main_menu_keyboard(is_admin=is_admin))
-
-
-@router.message(F.text == "Помощь")
-async def cmd_help(message: Message) -> None:
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            tg_id=message.from_user.id,
-            full_name=message.from_user.full_name or message.from_user.username or "Без имени",
-        )
+        # Обновляем объект пользователя, чтобы узнать его новую роль
+        await session.refresh(user)
         is_admin = user.role == "admin"
 
-    text = (
-        "📚 <b>Помощь</b>\n\n"
-        "• <b>Выбрать дисциплину</b> — выбери предмет и посмотри очередь.\n"
-        "• <b>Мои очереди</b> — покажет список дисциплин, где ты уже стоишь в очереди.\n"
-        "• <b>Очистить очередь</b> — доступно только старостам (админам) для конкретной дисциплины."
-    )
-    if is_admin:
-        text += "\n• <b>Управление дисциплинами</b> — добавление и удаление дисциплин (только для админов)."
-    await message.answer(text, reply_markup=main_menu_keyboard(is_admin=is_admin))
+    await state.clear()  # Выключаем состояние ожидания
 
+    text = (
+        f"Приятно познакомиться, {full_name}!\n\n"
+        "Я бот для управления очередью. Используй меню ниже, чтобы выбрать дисциплину и посмотреть свои очереди."
+    )
+    await message.answer(text, reply_markup=main_menu_keyboard(is_admin=is_admin))

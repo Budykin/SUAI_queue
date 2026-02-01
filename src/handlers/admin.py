@@ -106,7 +106,6 @@ async def subjects_back(callback: CallbackQuery) -> None:
         is_admin = user.role == "admin"
 
     text = "Главное меню"
-    await callback.message.edit_text(text)
     await callback.message.answer(text, reply_markup=main_menu_keyboard(is_admin=is_admin))
     await callback.answer()
 

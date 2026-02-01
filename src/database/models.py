@@ -23,13 +23,19 @@ class Subject(Base):
 
     queues: Mapped[list["Queue"]] = relationship(back_populates="subject")
 
+
 class Queue(Base):
-    __tablename__ = "Queues" # Как на скриншоте
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("Users.tg_id", ondelete="CASCADE"))
-    subject_id: Mapped[int] = mapped_column(ForeignKey("Subjects.id", ondelete="CASCADE"))
+    __tablename__ = "Queues"
+    # Эти два поля вместе образуют уникальный ключ
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("Users.tg_id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("Subjects.id", ondelete="CASCADE"),
+        primary_key=True
+    )
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-
+    # Отношения остаются прежними
     user: Mapped["User"] = relationship(back_populates="queues")
     subject: Mapped["Subject"] = relationship(back_populates="queues")

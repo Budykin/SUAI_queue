@@ -2,6 +2,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 
 from src.database import async_session_maker
+from src.database.models import Subject
 from src.database.requests import (
     add_to_queue,
     get_subject,
@@ -12,7 +13,7 @@ from src.database.requests import (
     remove_from_queue,
 )
 # Если ты переименовал файлы клавиатур, проверь импорты здесь:
-from src.keyboards.inline import subjects_keyboard, queue_actions_keyboard
+from src.keyboards.inline import subjects_keyboard, queue_actions_keyboard, available_queues
 from src.keyboards.reply import main_menu_keyboard
 
 router = Router()
@@ -138,7 +139,7 @@ async def my_queues(message: Message) -> None:
 
 
         raw_sql = """
-            SELECT s.name 
+            SELECT s.name, s.id
             FROM Queues q
             JOIN Subjects s ON s.id = q.subject_id
             WHERE q.user_id = :user_id
@@ -146,12 +147,12 @@ async def my_queues(message: Message) -> None:
         """
         from sqlalchemy import text
         result = await session.execute(text(raw_sql), {"user_id": user.tg_id})
-        subject_names = [row[0] for row in result.fetchall()]
+        subjects = [Subject(name=row[0], id=row[1]) for row in result.fetchall()]
 
-    if not subject_names:
+    if not subjects:
         await message.answer("Ты пока не записан ни в одну очередь.",
                              reply_markup=main_menu_keyboard(is_admin=(user.role == "admin")))
         return
 
-    text = "Твои очереди:\n" + "\n".join(f"• {name}" for name in subject_names)
-    await message.answer(text, reply_markup=main_menu_keyboard(is_admin=(user.role == "admin")))
+    text = "Твои очереди:\n" + "\n".join(f"• {subject.name}" for subject in subjects)
+    await message.answer(text, reply_markup=available_queues(subjects))
