@@ -12,12 +12,16 @@ from src.database.requests import (
     get_user_by_tg_id,
     list_subjects,
     update_subject,
+    list_users,
+    delete_user,
+    rename_user,
 )
 from src.keyboards.inline import (
     admin_subjects_keyboard,
     confirm_delete_subject_keyboard,
     queue_actions_keyboard,
     queue_clear_confirmation_keyboard,
+    admin_change_users_keyboard,
 )
 from src.keyboards.reply import main_menu_keyboard
 
@@ -30,6 +34,9 @@ class AddsubjectStates(StatesGroup):
 
 
 class EditsubjectStates(StatesGroup):
+    waiting_for_name = State()
+
+class RenameUser(StatesGroup):
     waiting_for_name = State()
 
 @router.callback_query(F.data.startswith("queue:clear1:"))
@@ -291,3 +298,58 @@ async def edit_subject_process(message: Message, state: FSMContext) -> None:
     )
     await state.clear()
 
+@router.message(F.text == "🤦‍♂️ Управление пользователями")
+async def edit_users(message: Message) -> None:
+    async with async_session_maker() as session:
+        users = await list_users(session)
+        await session.commit()
+    text = "🤦‍♂️ Выберите пользователя:"
+    await message.answer(text, reply_markup=admin_change_users_keyboard(users))
+
+@router.callback_query(F.data.startswith("delete:user:"))
+async def delete_user(callback: CallbackQuery) -> None:
+    user_id = int(callback.data.split(":")[2])
+    async with async_session_maker() as session:
+        if delete_user(session, user_id):
+            await callback.answer("Пользователь удален")
+        else:
+            await callback.answer("❌ Не удалось удалить пользователя")
+
+@router.callback_query(F.data.startswith("rename:user:"))
+async def rename_user_handler(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = int(callback.data.split(":")[2])
+    await state.update_data(user_id=user_id)
+    async with async_session_maker() as session:
+        user = await get_user_by_tg_id(session, user_id)
+        if not user:
+            await callback.answer("Пользователь не найден.", show_alert=True)
+            return
+    await callback.message.edit_text(
+        f"Текущее имя: <b>{user.full_name}</b>\n\nВведи новое имя пользователя:"
+    )
+    await state.set_state(RenameUser.waiting_for_name)
+    await callback.answer()
+
+@router.message(RenameUser.waiting_for_name)
+async def enter_new_name(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    user_id = data.get("user_id")
+    new_name = message.text.strip()
+
+    if not new_name or len(new_name) > 100:  # Проверка на валидность
+        await message.answer("Имя не может быть пустым или слишком длинным.")
+        return
+
+    async with async_session_maker() as session:
+        is_updated = await rename_user(session, user_id, new_name)
+        if not is_updated:
+            await message.answer("Ошибка: пользователь не найден.")
+            await state.clear()
+            return
+        await session.commit()
+        text = f"Пользователь успешно переименован в <b>{new_name}</b>"
+        await message.answer(
+            text,
+            reply_markup=main_menu_keyboard(is_admin=True),
+        )
+        await state.clear()

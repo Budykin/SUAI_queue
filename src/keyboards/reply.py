@@ -10,5 +10,6 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     ]
     if is_admin:
         keyboard.append([KeyboardButton(text="⚙️ Управление дисциплинами")])
+        keyboard.append([KeyboardButton(text="🤦‍♂️ Управление пользователями")])
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 

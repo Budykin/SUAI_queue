@@ -8,6 +8,16 @@ def subjects_keyboard(subjects: list) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+def admin_change_users_keyboard(users: list) -> InlineKeyboardMarkup:
+    buttons = []
+    for idx, user in enumerate(users, start=1):
+        buttons.append([
+            InlineKeyboardButton(text=f"{idx}. {user.full_name}", callback_data=f"rename:user:{user.tg_id}"),
+            InlineKeyboardButton(text="❌Удалить", callback_data=f"delete:user:{user.tg_id}")
+        ]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 def available_queues(subjects: list) -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(text=disc.name, callback_data=f"subject:{disc.id}")]

@@ -8,19 +8,6 @@ from sqlalchemy.orm import selectinload
 # Импорт новых моделей
 from .models import User, Subject, Queue
 
-
-# async def get_or_create_user(session: AsyncSession, tg_id: int, full_name: str) -> User:
-#     """Получить существующего пользователя или создать нового"""
-#     result = await session.execute(select(User).where(User.tg_id == tg_id))
-#     user = result.scalar_one_or_none()
-#
-#     if user is None:
-#         user = User(tg_id=tg_id, full_name=full_name)
-#         session.add(user)
-#         await session.flush()
-#
-#     return user
-
 async def create_user(session: AsyncSession, tg_id: int, full_name: str) -> User:
     user = User(tg_id=tg_id, full_name=full_name)
     session.add(user)
@@ -45,6 +32,25 @@ async def ensure_admin_roles(session: AsyncSession, tg_ids: List[int]) -> None:
     for user in users:
         user.role = "admin"
 
+async def list_users(session: AsyncSession) -> List[User]:
+    result = await session.execute(select(User).order_by(User.full_name))
+    return list(result.scalars().all())
+
+async def delete_user(session: AsyncSession, user_id: int) -> bool:
+    is_exist = await get_user_by_tg_id(session, user_id)
+    if is_exist is None:
+        return False
+    await session.execute(delete(User).where(User.tg_id == user_id))
+    await session.commit()
+    return True
+
+async def rename_user(session: AsyncSession, user_id: int, new_name: str) -> bool:
+    user = await get_user_by_tg_id(session, user_id)
+    if not user:
+        return False
+    user.full_name = new_name
+    await session.flush()
+    return True
 
 async def list_subjects(session: AsyncSession) -> List[Subject]:
     """Получить список всех предметов"""

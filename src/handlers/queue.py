@@ -1,3 +1,5 @@
+from curses.textpad import Textbox
+
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 
