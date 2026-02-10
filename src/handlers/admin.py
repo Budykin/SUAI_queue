@@ -310,7 +310,7 @@ async def edit_users(message: Message) -> None:
 async def delete_user(callback: CallbackQuery) -> None:
     user_id = int(callback.data.split(":")[2])
     async with async_session_maker() as session:
-        if delete_user(session, user_id):
+        if await delete_user(session, user_id):
             await callback.answer("Пользователь удален")
         else:
             await callback.answer("❌ Не удалось удалить пользователя")
