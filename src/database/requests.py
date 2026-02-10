@@ -41,7 +41,7 @@ async def delete_user(session: AsyncSession, user_id: int) -> bool:
     if is_exist is None:
         return False
     await session.execute(delete(Queue).where(Queue.user_id == user_id))
-    await session.execute(delete(User).where(User.tg_id == user_id))
+    await session.delete(is_exist) # delete user
     await session.commit()
     return True
 
