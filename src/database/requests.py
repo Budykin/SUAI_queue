@@ -36,7 +36,7 @@ async def list_users(session: AsyncSession) -> List[User]:
     result = await session.execute(select(User).order_by(User.full_name))
     return list(result.scalars().all())
 
-async def delete_user(session: AsyncSession, user_id: int) -> bool:
+async def delete_user_bd(session: AsyncSession, user_id: int) -> bool:
     is_exist = await get_user_by_tg_id(session, user_id)
     if is_exist is None:
         return False

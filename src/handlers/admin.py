@@ -13,7 +13,7 @@ from src.database.requests import (
     list_subjects,
     update_subject,
     list_users,
-    delete_user,
+    delete_user_bd,
     rename_user,
 )
 from src.keyboards.inline import (
@@ -310,7 +310,7 @@ async def edit_users(message: Message) -> None:
 async def delete_user(callback: CallbackQuery) -> None:
     user_id = int(callback.data.split(":")[2])
     async with async_session_maker() as session:
-        if await delete_user(session, user_id):
+        if await delete_user_bd(session, user_id):
             await callback.answer("Пользователь удален")
         else:
             await callback.answer("❌ Не удалось удалить пользователя")
